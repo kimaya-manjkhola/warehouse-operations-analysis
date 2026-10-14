@@ -49,13 +49,15 @@ def _zone_colours(zones) -> list[str]:
 
 def delay_rate_by_zone(zone: pd.DataFrame, out_dir: Path) -> Path:
     """Chart 1: delay rate per zone with Wilson 95% CI error bars."""
-    fig, ax = plt.subplots(figsize=(7, 4.2))
+    fig, ax = plt.subplots(layout="constrained", figsize=(7, 4.2))
     rate = zone["delay_rate"] * 100
     err = np.vstack([rate - zone["delay_rate_ci_low"] * 100, zone["delay_rate_ci_high"] * 100 - rate])
     ax.bar(zone["Zone"], rate, color=_zone_colours(zone["Zone"]), width=0.6,
            yerr=err, capsize=5, error_kw={"ecolor": C["text"], "lw": 1.2})
-    for x, v in zip(zone["Zone"], rate):
-        ax.annotate(f"{v:.1f}%", (x, v), xytext=(14, 4), textcoords="offset points", fontsize=10)
+    upper = zone["delay_rate_ci_high"] * 100
+    for x, v, top in zip(zone["Zone"], rate, upper):
+        ax.annotate(f"{v:.1f}%", (x, top), xytext=(0, 5), textcoords="offset points", ha="center", fontsize=10)
+    ax.set_ylim(0, upper.max() * 1.15)
     ax.set(title="Delay rate by zone (95% Wilson CI)", xlabel="Zone",
            ylabel=f"Orders over {config.DELAY_THRESHOLD:g} min (%)")
     return save(fig, out_dir, "01_delay_rate_by_zone.png")
@@ -63,25 +65,27 @@ def delay_rate_by_zone(zone: pd.DataFrame, out_dir: Path) -> Path:
 
 def share_orders_vs_delays(zone: pd.DataFrame, out_dir: Path) -> Path:
     """Chart 2: each zone's share of all orders next to its share of all delays."""
-    fig, ax = plt.subplots(figsize=(7.5, 4.2))
+    fig, ax = plt.subplots(layout="constrained", figsize=(7.5, 4.2))
     x = np.arange(len(zone))
     delay_colours = [C["highlight"] if z == config.KEY_ZONE else C["dark"] for z in zone["Zone"]]
     ax.bar(x - 0.2, zone["share_of_orders"] * 100, 0.38, color=C["neutral"], label="Share of all orders")
     ax.bar(x + 0.2, zone["share_of_delays"] * 100, 0.38, color=delay_colours,
-           label="Share of all delayed orders (Zone C highlighted)")
+           label="Share of all delayed orders")
     for xi, (o, d) in enumerate(zip(zone["share_of_orders"], zone["share_of_delays"])):
         ax.text(xi - 0.2, o * 100 + 1, f"{o:.0%}", ha="center", fontsize=9, color=C["muted"])
         ax.text(xi + 0.2, d * 100 + 1, f"{d:.0%}", ha="center", fontsize=9)
     ax.set_xticks(x, zone["Zone"])
     ax.set(title="Share of orders vs share of delays", xlabel="Zone", ylabel="Share (%)")
-    ax.legend(loc="upper left")
+    tallest = max(zone["share_of_orders"].max(), zone["share_of_delays"].max()) * 100
+    ax.set_ylim(0, tallest * 1.15)
+    fig.legend(loc="outside lower center", ncol=2)
     return save(fig, out_dir, "02_share_orders_vs_delays.png")
 
 
 def zone_experience_heatmap(table: pd.DataFrame, out_dir: Path) -> Path:
     """Chart 3: delay rate for every Zone x Worker Experience cell, annotated."""
     pivot = table.pivot(index="Worker Experience", columns="Zone", values="delay_rate").reindex(config.EXPERIENCE)
-    fig, ax = plt.subplots(figsize=(7.5, 3.6))
+    fig, ax = plt.subplots(layout="constrained", figsize=(7.5, 3.6))
     im = ax.imshow(pivot.to_numpy() * 100, cmap=config.HEATMAP_CMAP, vmin=0, aspect="auto")
     for (i, j), v in np.ndenumerate(pivot.to_numpy()):
         n = table[(table["Worker Experience"] == pivot.index[i]) & (table["Zone"] == pivot.columns[j])]["orders"].iloc[0]
@@ -99,16 +103,16 @@ def zone_experience_heatmap(table: pd.DataFrame, out_dir: Path) -> Path:
 
 def processing_time_by_zone(df: pd.DataFrame, out_dir: Path) -> Path:
     """Chart 4: processing-time distributions by zone with the delay threshold."""
-    fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    fig, ax = plt.subplots(layout="constrained", figsize=(7.5, 4.5))
     data = [df.loc[df["Zone"] == z, "Processing Time"] for z in config.ZONES]
     box = ax.boxplot(data, patch_artist=True, widths=0.55, medianprops={"color": C["text"]},
                      flierprops={"marker": "o", "markersize": 3, "alpha": 0.4})
     ax.set_xticks(range(1, len(config.ZONES) + 1), config.ZONES)
     for patch, colour in zip(box["boxes"], _zone_colours(config.ZONES)):
         patch.set_facecolor(colour)
-    ax.axhline(config.DELAY_THRESHOLD, color=C["text"], ls="--", lw=1.2)
-    ax.text(4.45, config.DELAY_THRESHOLD + 0.3, f"{config.DELAY_THRESHOLD:g}-min delay threshold",
-            ha="right", fontsize=9)
+    ax.axhline(config.DELAY_THRESHOLD, color=C["text"], ls="--", lw=1.2,
+               label=f"{config.DELAY_THRESHOLD:g}-min delay threshold")
+    ax.legend(loc="upper left")
     ax.set(title="Processing time by zone", xlabel="Zone", ylabel="Processing time (min)")
     return save(fig, out_dir, "04_processing_time_by_zone.png")
 
@@ -119,7 +123,7 @@ def workload_confounding(per_shift: pd.DataFrame, out_dir: Path) -> Path:
     The overall upward trend comes from evening shifts being both busier and
     slower, not from workload itself.
     """
-    fig, ax = plt.subplots(figsize=(8, 4.6))
+    fig, ax = plt.subplots(layout="constrained", figsize=(8, 4.6))
     for shift in config.SHIFTS:
         part = per_shift[per_shift["Shift"] == shift]
         ax.scatter(part["Orders in Shift"], part["delay_rate"] * 100, s=28, alpha=0.8,
@@ -167,22 +171,23 @@ def validation_chart(validation: pd.DataFrame, out_dir: Path) -> Path:
         (v[v["section"] == "Pick time: no-effect checks"], "Pick time: no-effect checks",
          "Effect on pick time (%)", False),
     ]
-    fig, axes = plt.subplots(1, 3, figsize=(17, 6.2), gridspec_kw={"width_ratios": [1, 1.15, 1]})
+    heights = [len(rows) + 1.5 for rows, *_ in panels]
+    fig, axes = plt.subplots(3, 1, layout="constrained", figsize=(10, 0.42 * sum(heights) + 2),
+                             gridspec_kw={"height_ratios": heights})
     for ax, (rows, title, xlabel, relative) in zip(axes, panels):
         _forest(ax, rows, title, xlabel, relative)
     handles = [Line2D([], [], color=C["dark"], marker="o", lw=2.5, label="Estimate, 95% CI contains truth"),
                Line2D([], [], color=C["highlight"], marker="o", lw=2.5, label="Estimate, 95% CI misses truth"),
                Line2D([], [], color=C["truth"], marker="|", ms=14, mew=2, lw=0, label="True value")]
-    fig.legend(handles=handles, loc="lower center", ncol=3, bbox_to_anchor=(0.5, -0.04))
+    fig.legend(handles=handles, loc="outside lower center", ncol=3)
     fig.suptitle("Model validation: estimates vs the known true process", fontsize=14, fontweight="bold")
-    fig.tight_layout()
     return save(fig, out_dir, "06_validation_true_vs_estimate.png")
 
 
 def scenario_comparison(table: pd.DataFrame, best: str, out_dir: Path) -> Path:
     """Chart 7: delayed orders avoided per scenario with the bootstrap 95% range."""
     t = table[table["scenario"] != "S0"].iloc[::-1]
-    fig, ax = plt.subplots(figsize=(8.5, 4.8))
+    fig, ax = plt.subplots(layout="constrained", figsize=(8.5, 4.8))
     colours = [C["highlight"] if s == best else C["base"] for s in t["scenario"]]
     err = np.vstack([t["delayed_avoided"] - t["avoided_low"], t["avoided_high"] - t["delayed_avoided"]])
     ax.barh(t["scenario"], t["delayed_avoided"], color=colours, xerr=err, capsize=4,
@@ -201,11 +206,12 @@ def s3_sensitivity(table: pd.DataFrame, out_dir: Path) -> Path:
     deltas = [0.0] + [float(s.split("(")[1].split()[0]) for s in s3["scenario"]]
     rates = [table.loc[table["scenario"] == "S0", "zone_c_delay_rate"].iloc[0]] + list(s3["zone_c_delay_rate"])
     s1 = table.loc[table["scenario"] == "S1", "zone_c_delay_rate"].iloc[0]
-    fig, ax = plt.subplots(figsize=(7, 4.2))
+    fig, ax = plt.subplots(layout="constrained", figsize=(7, 4.2))
     ax.plot(deltas, np.array(rates) * 100, marker="o", color=C["dark"], lw=2, label="S3: layout change")
     ax.axhline(s1 * 100, color=C["highlight"], ls="--", lw=1.5, label="S1: support new workers")
     for d, r in zip(deltas, rates):
         ax.annotate(f"{r:.1%}", (d, r * 100), xytext=(5, 6), textcoords="offset points", fontsize=9)
+    ax.set_ylim(min(rates) * 100 - 2, max(rates) * 100 * 1.12)
     ax.set(title="Zone C delay rate vs layout improvement",
            xlabel="Reduction in Zone C base pick time, delta (min)", ylabel="Zone C delay rate (%)")
     ax.legend()
@@ -215,7 +221,7 @@ def s3_sensitivity(table: pd.DataFrame, out_dir: Path) -> Path:
 def threshold_sensitivity(sens: pd.DataFrame, out_dir: Path) -> Path:
     """Chart 9: scenario ranking (avoided per 100 changed orders) at each threshold."""
     thresholds = sorted(sens["threshold"].unique())
-    fig, axes = plt.subplots(1, len(thresholds), figsize=(15, 4.8), sharey=False)
+    fig, axes = plt.subplots(1, len(thresholds), layout="constrained", figsize=(15, 4.8), sharey=False)
     for ax, t in zip(np.atleast_1d(axes), thresholds):
         part = sens[sens["threshold"] == t].sort_values("avoided_per_100_affected")
         colours = [C["highlight"] if r == 1 else C["base"] for r in part["rank"]]
@@ -225,5 +231,4 @@ def threshold_sensitivity(sens: pd.DataFrame, out_dir: Path) -> Path:
         ax.grid(axis="y", visible=False)
     fig.suptitle("Is the best scenario the same at every delay threshold? (orange = rank 1)",
                  fontsize=13, fontweight="bold")
-    fig.tight_layout()
     return save(fig, out_dir, "09_threshold_sensitivity.png")
