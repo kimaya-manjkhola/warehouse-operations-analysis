@@ -111,3 +111,23 @@ def run_test_suite(df: pd.DataFrame) -> pd.DataFrame:
     table["p_bonferroni"] = bonferroni(table["p_value"])
     table["significant_after_correction"] = table["p_bonferroni"] < config.ALPHA
     return table
+
+
+def icc_anova(values, clusters) -> float:
+    """Intra-cluster correlation (ICC) with the one-way ANOVA estimator, floored at 0.
+
+    ICC says how much more alike two orders from the same cluster are than two
+    random orders (0 = no more alike, 1 = identical). It is used to inflate a
+    sample size when a trial is randomised by cluster instead of by order.
+    """
+    frame = pd.DataFrame({"y": np.asarray(values, float), "g": np.asarray(clusters)})
+    groups = frame.groupby("g")["y"]
+    n_i, means = groups.size(), groups.mean()
+    k, n = len(n_i), len(frame)
+    if k < 2 or n <= k:
+        return 0.0
+    msb = float((n_i * (means - frame["y"].mean()) ** 2).sum() / (k - 1))
+    msw = float(((frame["y"] - frame["g"].map(means)) ** 2).sum() / (n - k))
+    n0 = (n - (n_i ** 2).sum() / n) / (k - 1)
+    denom = msb + (n0 - 1) * msw
+    return max(0.0, (msb - msw) / denom) if denom > 0 else 0.0

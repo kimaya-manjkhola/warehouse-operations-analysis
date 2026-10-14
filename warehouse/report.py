@@ -14,6 +14,9 @@ import pandas as pd
 
 from . import config
 
+SYNTHETIC_NOTE = '> **Note:** this project uses a synthetic dataset with patterns deliberately built in. Results demonstrate the analytical method; scenario figures are simulation estimates, not measured improvements at a real warehouse.'
+SCOPE_SENTENCE = 'The held-out test uses other orders from the same synthetic month, so it shows the model is not overfitted; it does not show the model would generalise to a real warehouse, a different month or different operating conditions.'
+
 # ---------------------------------------------------------------- formatting
 
 
@@ -73,6 +76,24 @@ def unc(r: dict, scenario: str) -> str:
     return f"{u['avoided_low']:,.0f}-{u['avoided_high']:,.0f}"
 
 # ---------------------------------------------------------------- sections
+
+
+def section_one_minute(r: dict) -> str:
+    """Executive summary for a non-technical manager (at most six lines)."""
+    h, k = headline(r), r["kpis"]
+    best = h["best"]
+    how = ", for example through training or pairing" if best["scenario"] == "S1" else ""
+    return "\n".join([
+        f"- **Problem:** Zone C handles {pct(h['zone_c']['share_of_orders'], 0)} of orders but "
+        f"{pct(h['zone_c']['share_of_delays'], 0)} of all late orders (over {r['threshold']:g} minutes).",
+        f"- **Root cause:** New workers in Zone C handle {pct(h['new_c']['share_of_orders'])} of orders but cause "
+        f"{pct(h['new_c']['share_of_delays'])} of all late orders.",
+        f"- **Recommendation:** {best['description']}{how} ({best['scenario']}).",
+        f"- **Impact, in simulation:** about {best['delayed_avoided']:,} fewer late orders a month out of "
+        f"{k['delayed_orders']:,} (95% range {unc(r, best['scenario'])}).",
+        "- **Key limitation:** the data is synthetic, so confirm the effect with a small controlled trial before "
+        "any wider change.",
+    ])
 
 
 def section_key_results(r: dict) -> str:
@@ -174,7 +195,7 @@ def section_models(r: dict) -> str:
         f"**Workload confounding check** (correlation between Evening and Orders in Shift = "
         f"{num(r['evening_workload_corr'], 2)}):\n\n" + md_table(conf_t),
         "**Out-of-sample check of the pick model** (fit on a random 80%, scored on the other 20%):\n\n"
-        + md_table(oos_t),
+        + md_table(oos_t) + "\n\n" + SCOPE_SENTENCE,
     ])
 
 
@@ -307,7 +328,6 @@ def section_recommendation(r: dict) -> str:
     h, trial = headline(r), r["trial"]
     best, big = h["best"], h["biggest"]
     full, half = trial.iloc[0], trial.iloc[1]
-    days = max(int(half["days_needed"]), config.TRIAL_MIN_DAYS)
     lines = [
         f"**Recommendation: start with '{best['description']}' ({best['scenario']}).** In the simulation it "
         f"avoids {best['delayed_avoided']:,} delayed orders a month (95% range {unc(r, best['scenario'])}) while "
@@ -318,6 +338,15 @@ def section_recommendation(r: dict) -> str:
         "",
         sensitivity_sentence(r, best["scenario"]),
         "",
+        trial_text(r, full, half),
+    ]
+    return "\n".join(lines)
+
+
+def trial_text(r: dict, full: pd.Series, half: pd.Series) -> str:
+    """Trial design: metric, targets, independent and clustered sample sizes."""
+    days = max(int(half["days_needed_clustered"]), config.TRIAL_MIN_DAYS)
+    lines = [
         "**Trial design**",
         f"- Metric: delay rate (> {r['threshold']:g} min) of New-worker orders in Zone C.",
         f"- Baseline: {pct(full['baseline_rate'])} (observed, August 2026).",
@@ -325,19 +354,36 @@ def section_recommendation(r: dict) -> str:
         f"Zone C (the S1 simulation gives {pct(r['s1_check']['simulated_new_c_rate'])}, which is not used because "
         f"scaling recorded times also shrinks their random noise). Conservative target (half the improvement): "
         f"{pct(half['target_rate'])}.",
-        f"- Sample size (two-proportion test, 80% power, alpha 0.05): {full['orders_per_group']:,} orders per group "
-        f"for the expected effect, {half['orders_per_group']:,} per group for the conservative effect.",
-        f"- About {half['new_zone_c_orders_per_day']:.0f} New-worker Zone C orders arrive per day, so with two arms "
-        f"(support on / off) the conservative case needs about {int(half['days_needed'])} day(s). Because orders from "
-        f"the same worker and shift are not independent, run for at least {days} days so every shift and weekday is "
-        "covered several times, and randomise by worker-shift rather than by order.",
+        f"- **Sample size if orders were independent (preliminary estimate)** (two-proportion test, 80% power, "
+        f"alpha 0.05): "
+        f"{full['orders_per_group']:,} orders per group for the expected effect, {half['orders_per_group']:,} per "
+        "group for the conservative effect.",
+        f"- **Clustered sample size (preliminary estimate).** The trial would be randomised by worker-shift, and "
+        f"orders in the same cluster are alike. ICC of the delayed flag = {half['icc']:.3f} (one-way ANOVA, floored "
+        f"at 0); average cluster size m = {half['avg_cluster_size']:.1f} orders; design effect DEFF = 1 + (m - 1) x "
+        f"ICC = {half['deff']:.2f}.",
+        "",
+        md_table(pd.DataFrame({
+            "Case": [full["case"], half["case"]],
+            "Orders per arm (independent)": [f"{full['orders_per_group']:,}", f"{half['orders_per_group']:,}"],
+            "DEFF": [f"{full['deff']:.2f}", f"{half['deff']:.2f}"],
+            "Orders per arm (clustered)": [f"{full['orders_per_group_clustered']:,}",
+                                           f"{half['orders_per_group_clustered']:,}"],
+            "Worker-shifts per arm": [f"{full['clusters_per_arm']:,}", f"{half['clusters_per_arm']:,}"],
+            "Days (two arms)": [f"{full['days_needed_clustered']:,}", f"{half['days_needed_clustered']:,}"]})),
+        "",
+        f"- Assumptions: date x shift is used as the cluster because worker IDs are not recorded; about "
+        f"{half['clusters_per_day']:.0f} worker-shifts with New-worker Zone C orders occur per day and are split "
+        "between the two arms; the real ICC should be re-estimated from pilot data.",
+        f"- Run for at least {days} days (the conservative clustered estimate or {config.TRIAL_MIN_DAYS} days, "
+        "whichever is longer) so every shift and weekday is covered several times.",
     ]
     return "\n".join(lines)
 
 
 def sections(r: dict) -> dict:
     """All generated Markdown sections, keyed by README block name."""
-    return {"key_results": section_key_results(r), "describe": section_describe(r),
+    return {"one_minute": section_one_minute(r), "key_results": section_key_results(r), "describe": section_describe(r),
             "root_cause": section_root_cause(r), "models": section_models(r),
             "validation": section_validation(r), "scenarios": section_scenarios(r),
             "sensitivity": section_sensitivity(r), "recommendation": section_recommendation(r)}
@@ -351,8 +397,10 @@ def build_report(r: dict) -> str:
     validation_rows = md_table(r["validation_data"])
     return "\n\n".join([
         "# Warehouse operations analysis: generated report",
+        SYNTHETIC_NOTE,
         f"_Generated by `run_analysis.py` (threshold {r['threshold']:g} min, seed {r['seed']}, "
         f"{r['iterations']} bootstrap iterations). Every number below is computed from the data._",
+        "## In one minute", s["one_minute"],
         "## Key results", s["key_results"],
         "## 1. Data validation", validation_rows,
         "## 2. Description", s["describe"],
@@ -365,7 +413,7 @@ def build_report(r: dict) -> str:
         "## Limitations",
         "Synthetic data with built-in patterns (the project demonstrates the method, not real warehouse behaviour); "
         "one month only; no arrival times or staffing levels, so queues and throughput are not modelled; "
-        "observational correlations are not proof of cause outside a controlled trial.",
+        "observational correlations are not proof of cause outside a controlled trial. " + SCOPE_SENTENCE,
     ]) + "\n"
 
 

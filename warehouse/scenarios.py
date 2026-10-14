@@ -231,24 +231,46 @@ def s1_sanity_check(df: pd.DataFrame, effects: dict, threshold: float = config.D
             "observed_experienced_c_rate": float((df.loc[exp_c, "Processing Time"] > threshold).mean())}
 
 
+def cluster_design(df: pd.DataFrame, threshold: float = config.DELAY_THRESHOLD) -> dict:
+    """Preliminary clustering inputs for a trial randomised by worker-shift.
+
+    Worker IDs are not recorded, so each date x shift is used as the cluster.
+    Returns the ICC of the delayed flag for New-worker Zone C orders, the
+    average cluster size m, the design effect DEFF = 1 + (m - 1) x ICC and the
+    number of clusters per day. The real ICC should be re-estimated from pilot data.
+    """
+    from .stats_tests import icc_anova  # local import keeps scenarios.py standalone
+    orders = df[_new_in_zone_c(df)]
+    clusters = orders["Date"].astype(str) + " " + orders["Shift"].astype(str)
+    icc = icc_anova(orders["Processing Time"] > threshold, clusters)
+    m = float(clusters.value_counts().mean())
+    return {"icc": icc, "avg_cluster_size": m, "deff": 1 + (m - 1) * icc,
+            "clusters_per_day": clusters.nunique() / df["Date"].nunique()}
+
+
 def trial_design(df: pd.DataFrame, effects: dict, threshold: float = config.DELAY_THRESHOLD) -> pd.DataFrame:
-    """Size a trial of S1 on New-worker Zone C orders.
+    """Size a trial of S1 on New-worker Zone C orders (preliminary estimate).
 
     Metric: delay rate of New-worker Zone C orders. Baseline: their observed
     rate. Expected with support: the OBSERVED rate of Experienced workers in
     Zone C (not the S1 simulation, which is too optimistic; see
     s1_sanity_check). A conservative case assumes only half that improvement.
-    Days assume two equal arms (support on / off) sharing the observed daily
-    flow of these orders.
+    The independent-orders sample size is inflated by the design effect
+    because the trial would be randomised by worker-shift (date x shift here).
+    Days assume two equal arms (support on / off) sharing the clusters.
     """
-    check = s1_sanity_check(df, effects, threshold)
+    check, design = s1_sanity_check(df, effects, threshold), cluster_design(df, threshold)
     p1, p_full = check["observed_new_c_rate"], check["observed_experienced_c_rate"]
     per_day = _new_in_zone_c(df).sum() / df["Date"].nunique()
     rows = []
     for case, p2 in (("Expected improvement (to observed Experienced Zone C rate)", p_full),
                      ("Half the expected improvement", (p1 + p_full) / 2)):
         n = sample_size_two_proportions(p1, p2)
+        n_clustered = int(np.ceil(n * design["deff"]))
+        clusters = int(np.ceil(n_clustered / design["avg_cluster_size"]))
         rows.append({"case": case, "baseline_rate": p1, "target_rate": p2, "orders_per_group": n,
                      "orders_total": 2 * n, "new_zone_c_orders_per_day": float(per_day),
-                     "days_needed": int(np.ceil(2 * n / per_day))})
+                     "days_needed": int(np.ceil(2 * n / per_day)), **design,
+                     "orders_per_group_clustered": n_clustered, "clusters_per_arm": clusters,
+                     "days_needed_clustered": int(np.ceil(2 * clusters / design["clusters_per_day"]))})
     return pd.DataFrame(rows)

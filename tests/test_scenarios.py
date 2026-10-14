@@ -50,3 +50,10 @@ def test_power_calculation_matches_statsmodels():
     n = scenarios.sample_size_two_proportions(0.65, 0.45)
     ref = NormalIndPower().solve_power(proportion_effectsize(0.65, 0.45), alpha=0.05, power=0.8)
     assert n == int(np.ceil(ref))
+
+
+def test_clustered_trial_size_is_at_least_independent(real_df, effects):
+    trial = scenarios.trial_design(real_df, effects, 15)
+    assert (trial["deff"] >= 1).all()
+    assert (trial["orders_per_group_clustered"] >= trial["orders_per_group"]).all()
+    assert (trial["clusters_per_arm"] >= 1).all()
