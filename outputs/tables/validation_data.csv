@@ -1,0 +1,12 @@
+check,issues_found,result
+Missing values (cells),0,PASS
+Duplicate rows,0,PASS
+Duplicate Order Ids,0,PASS
+Pick or Pack time <= 0,0,PASS
+Items outside 1-10,0,PASS
+Dates outside August 2026 or unreadable,0,PASS
+Processing != Pick + Pack (tolerance 0.01),0,PASS
+Unexpected Zone labels,0,PASS
+Unexpected Shift labels,0,PASS
+Unexpected Worker Experience labels,0,PASS
+Unexpected Error labels,0,PASS

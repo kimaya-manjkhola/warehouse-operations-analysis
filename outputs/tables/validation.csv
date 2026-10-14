@@ -1,0 +1,24 @@
+section,parameter,units,true_value,estimate,ci_low,ci_high,p_value,check_type,contains_truth,excludes_zero
+Pick time model,base_A,minutes,4.0,4.048706359012751,4.005245810969951,4.0876018265001015,,built-in effect,False,True
+Pick time model,base_B,minutes,5.0,5.034595760009597,4.986512829265578,5.077673181815733,,built-in effect,True,True
+Pick time model,base_C,minutes,7.0,7.017990437848827,6.965450831133426,7.066260444190321,,built-in effect,True,True
+Pick time model,base_D,minutes,5.0,5.0132679566496785,4.9651065710976,5.0596926091610825,,built-in effect,True,True
+Pick time model,k,minutes per item,0.3,0.2933561842914864,0.2882026780521058,0.29916754398924944,,built-in effect,False,True
+Pick time model,m_evening,multiplier (x),1.15,1.1558495619257254,1.1499904594052262,1.1612791195760457,,built-in effect,True,True
+Pick time model,m_new,multiplier (x),1.25,1.247494154540916,1.2408313825095436,1.2541221200451544,,built-in effect,True,True
+Pack time model,p_new,multiplier (x),1.15,1.1497949279844555,1.1440086876684898,1.1551345424899864,,built-in effect,True,True
+Error model (LPM),Baseline error rate (reference group*),percentage points,2.0,0.9588788825733876,-0.2857127846972075,2.2034705498439826,0.13103631879267386,built-in effect,True,False
+Error model (LPM),Zone B,percentage points,0.0,0.38687839469797464,-0.655391725618906,1.4291485150148555,0.4669101929382464,no effect,True,False
+Error model (LPM),Zone C,percentage points,4.0,4.209189660457657,2.946536860256472,5.471842460658842,6.414216565478153e-11,built-in effect,True,True
+Error model (LPM),Zone D,percentage points,0.0,0.08807279718847758,-0.9357156508610384,1.1118612452379935,0.8661045358923465,no effect,True,False
+Error model (LPM),Shift Afternoon,percentage points,0.0,0.3123318471512382,-0.6892826869324191,1.3139463812348957,0.5410854446331629,no effect,True,False
+Error model (LPM),Shift Evening,percentage points,2.0,1.9111651574292468,0.17761897365440038,3.6447113412040935,0.030712206019810374,built-in effect,True,True
+Error model (LPM),New worker,percentage points,3.0,2.5069792063338787,1.5247275027516989,3.489230909916058,5.662902105646612e-07,built-in effect,True,True
+Error model (LPM),Category Electronics,percentage points,0.0,1.2193830105262913,0.23301366544775867,2.2057523556048237,0.015394049602732707,no effect,False,True
+Error model (LPM),Category Home,percentage points,0.0,1.153724232665019,0.17111063757081993,2.136337827759218,0.021376445876460815,no effect,False,True
+Error model (LPM),Priority order (vs Standard),percentage points,0.0,0.40018639461201044,-0.5582999935261798,1.3586727827502008,0.4131730955620252,no effect,True,False
+Error model (LPM),Orders in Shift (+10 orders),percentage points,0.0,-0.08289065058396743,-0.4934728906363727,0.32769158946843785,0.6923348059028036,no effect,True,False
+Pick time: no-effect checks,Category Electronics,% of pick time,0.0,0.04033275524714656,-0.5244407982498615,0.6051063087441545,0.8886845421654468,no effect,True,False
+Pick time: no-effect checks,Category Home,% of pick time,0.0,0.20666497424782201,-0.35379648686064774,0.7671264353562918,0.4698528035549522,no effect,True,False
+Pick time: no-effect checks,Priority order (vs Standard),% of pick time,0.0,-0.8239355787009451,-1.350657541293138,-0.29721361610875213,0.002170059691888162,no effect,False,True
+Pick time: no-effect checks,Orders in Shift (+10 orders),% of pick time,0.0,-0.0014052913602426533,-0.11746078723891078,0.11465020451842545,0.9810657525032408,no effect,True,False

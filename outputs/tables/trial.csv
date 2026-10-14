@@ -1,0 +1,3 @@
+case,baseline_rate,target_rate,orders_per_group,orders_total,new_zone_c_orders_per_day,days_needed
+Expected improvement (to observed Experienced Zone C rate),0.6518218623481782,0.2076105204252938,19,38,23.903225806451612,2
+Half the expected improvement,0.6518218623481782,0.429716191386736,78,156,23.903225806451612,7

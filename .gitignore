@@ -1,0 +1,20 @@
+# Private interview preparation notes (not for upload)
+INTERVIEW_NOTES.md
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+~$*.xlsx

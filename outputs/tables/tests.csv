@@ -1,0 +1,8 @@
+test,method,statistic,dof,p_value,effect_size,effect_measure,n,p_bonferroni,significant_after_correction
+Delayed vs Zone,Chi-square,1191.5439038188906,3.0,5.01057909082191e-258,0.3451874713570715,Cramer's V,10000,3.507405363575337e-257,True
+Delayed vs Experience (Zone C),Chi-square,462.0466139225756,1.0,1.7239110639513516e-102,0.42751795705983364,Cramer's V,2528,1.2067377447659462e-101,True
+Worker Experience vs Zone,Chi-square,2.0656267280806464,3.0,0.5588979484919177,0.014372288363655408,Cramer's V,10000,1.0,False
+Processing time: Zone C vs other zones,Welch t-test,47.21912480908283,,0.0,1.1081862705534125,Cohen's d,10000,0.0,True
+Processing time: Zone C vs other zones,Mann-Whitney U,14772102.0,,0.0,0.7820389157496002,P(a > b),10000,0.0,True
+Processing time: New vs Experienced (Zone C),Welch t-test,28.67808389585028,,1.9209058964944843e-139,1.2823861365546674,Cohen's d,2528,1.344634127546139e-138,True
+Processing time: New vs Experienced (Zone C),Mann-Whitney U,1076654.5,,5.643214070152307e-136,0.8130806008607676,P(a > b),2528,3.9502498491066146e-135,True

@@ -1,0 +1,10 @@
+kpi,value
+orders,10000.0
+delayed_orders,1375.0
+delay_rate,0.1375
+error_rate,0.0466
+mean_processing,12.14748
+median_processing,11.9
+p90_processing,15.6
+mean_pick,7.8731100000000005
+mean_pack,4.274369999999999
